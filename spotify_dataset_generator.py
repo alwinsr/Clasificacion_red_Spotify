@@ -1,11 +1,6 @@
 import time
 import pickle
 import os
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
 from scapy.all import sniff
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -28,33 +23,13 @@ SONG_URIS = [
     "spotify:track:6hpuesKPNa3WhV48O7Fa47"
 ]
 
-# Known Spotify IP ranges (you may need to update these)
-SPOTIFY_IPS = [
-    "35.186.224.26",
-    "35.186.224.24",
-    "88.221.213.170",
-]
 
 class SpotifyDatasetGenerator:
     def __init__(self):
         self.driver = None
         self.spotify_client = None
         self.captured_data = []
-        
-    def setup_selenium(self):
-        """Initialize Selenium WebDriver and clear cache"""
-        print("[1] Setting up Selenium WebDriver...")
-        chrome_options = Options()
-        chrome_options.add_argument("--start-maximized")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        
-        self.driver = webdriver.Chrome(options=chrome_options)
-        
-        # Clear browser cache
-        self.driver.execute_cdp_cmd('Network.clearBrowserCache', {})
-        self.driver.execute_cdp_cmd('Network.clearBrowserCookies', {})
-        print("   ✓ Browser cache cleared")
-        
+                
     def setup_spotify_client(self):
         """Initialize Spotipy client"""
         print("Setting up Spotify client...")
@@ -66,28 +41,6 @@ class SpotifyDatasetGenerator:
             scope=scope
         ))
         print("   ✓ Spotify client authenticated")
-        
-    def navigate_to_spotify_web_player(self):
-        """Navigate to Spotify web player and start initial playback"""
-        print("[2] Navigating to Spotify Web Player...")
-        self.driver.get("https://open.spotify.com")
-        
-        # Wait for page to load and user to log in manually if needed
-        print("   Please log in to Spotify if required...")
-        time.sleep(10)  # Give time for manual login
-        
-        # Try to find and click play button
-        try:
-            play_button = WebDriverWait(self.driver, 20).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='play-button']"))
-            )
-            play_button.click()
-            print("   ✓ Play button clicked")
-            time.sleep(3)
-        except Exception as e:
-            print(f"   Note: Could not auto-click play button: {e}")
-            print("   Please manually start playback in the browser")
-            time.sleep(5)
     
     def packet_callback(self, packet):
         """Callback function for packet capture"""
@@ -114,10 +67,9 @@ class SpotifyDatasetGenerator:
         # Start packet sniffing
         print(f"   Sniffing packets for {CAPTURE_DURATION} seconds...")
         start_time = time.time()
-        bpf_filter = " or ".join([f"(src host {ip} or dst host {ip})" for ip in SPOTIFY_IPS])
         try:
             sniff(
-                filter=bpf_filter,
+                iface="ens33",
                 prn=self.packet_callback,
                 timeout=CAPTURE_DURATION,
                 store=False
@@ -158,9 +110,7 @@ class SpotifyDatasetGenerator:
         """Main method to generate the dataset"""
         try:
             # Setup
-            self.setup_selenium()
             self.setup_spotify_client()
-            self.navigate_to_spotify_web_player()
             
             # Capture data for each song
             captured_songs = []
@@ -188,11 +138,7 @@ class SpotifyDatasetGenerator:
         except Exception as e:
             print(f"\n\nError during capture: {e}")
             raise
-        finally:
-            # Cleanup
-            if self.driver:
-                print("\nClosing browser...")
-                self.driver.quit()
+
 
 if __name__ == "__main__":
     print("=" * 50)
@@ -202,8 +148,7 @@ if __name__ == "__main__":
     print("1. Run this script with sudo/administrator privileges")
     print("2. Update SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in the env file")
     print("3. Update SONG_URIS with your test songs")
-    print("4. Make sure Chrome is installed")
-    print("5. Install required packages:")
+    print("4. Install required packages:")
     print("   pip install -r requirements.txt")
     print("=" * 50 + "\n")
     
