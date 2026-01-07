@@ -105,7 +105,7 @@ class SpotifyDatasetGenerator:
             total_packets = 0
             
             for song_idx, song_capture in enumerate(new_data):
-                song_id = f"song_{song_idx + 1}"
+                song_id = SONG_URIS[song_idx]
                 
                 for arrival_time, payload_size in song_capture:
                     writer.writerow([
