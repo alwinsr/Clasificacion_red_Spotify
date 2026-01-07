@@ -1,5 +1,5 @@
 import time
-import pickle
+import csv
 import os
 from scapy.all import sniff
 import spotipy
@@ -13,7 +13,7 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
-DATASET_FILE = "spotify_traffic_dataset.pkl"
+DATASET_FILE = "spotify_traffic_dataset.cvs"
 CAPTURE_DURATION = 60  # seconds
 
 # List of song URIs to capture (replace with your test songs)
@@ -56,7 +56,6 @@ class SpotifyDatasetGenerator:
         try:
             self.spotify_client.start_playback(uris=[song_uri])
             print(f"   ✓ Started playback: {song_uri}")
-            time.sleep(2)  # Wait for playback to stabilize
         except Exception as e:
             print(f"   ⚠ Error starting playback: {e}")
             print("   Attempting to continue with current playback...")
@@ -85,25 +84,38 @@ class SpotifyDatasetGenerator:
         return self.current_capture.copy()
     
     def save_dataset(self, new_data):
-        """Save or append data to pickle file"""
+        """Save or append data to CSV file"""
         print("[6] Saving dataset...")
         
-        # Load existing data if file exists
-        if os.path.exists(DATASET_FILE):
-            with open(DATASET_FILE, 'rb') as f:
-                existing_data = pickle.load(f)
-            print(f"   Loaded existing dataset with {len(existing_data)} samples")
-            existing_data.extend(new_data)
-            data_to_save = existing_data
-        else:
-            print("   Creating new dataset file")
-            data_to_save = new_data
+        # Check if file exists to determine if we need headers
+        file_exists = os.path.exists(DATASET_FILE)
         
-        # Save updated dataset
-        with open(DATASET_FILE, 'wb') as f:
-            pickle.dump(data_to_save, f)
+        # Open CSV file in append mode
+        with open(DATASET_FILE, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Write headers if new file
+            if not file_exists:
+                writer.writerow(['song_id', 'packet_arrival_time', 'payload_size'])
+                print("   Creating new dataset file with headers")
+            else:
+                print(f"   Appending to existing dataset")
+            
+            # Write data for each song
+            total_packets = 0
+            
+            for song_idx, song_capture in enumerate(new_data):
+                song_id = f"song_{song_idx + 1}"
+                
+                for arrival_time, payload_size in song_capture:
+                    writer.writerow([
+                        song_id,
+                        arrival_time,
+                        payload_size
+                    ])
+                    total_packets += 1
         
-        print(f"   ✓ Saved dataset with {len(data_to_save)} total samples")
+        print(f"   ✓ Saved {total_packets} packets from {len(new_data)} songs")
         print(f"   ✓ File: {DATASET_FILE}")
     
     def generate_dataset(self):
@@ -117,11 +129,6 @@ class SpotifyDatasetGenerator:
             for i, song_uri in enumerate(SONG_URIS):
                 song_data = self.capture_song_traffic(song_uri, i)
                 captured_songs.append(song_data)
-                
-                # Small pause between songs
-                if i < len(SONG_URIS) - 1:
-                    print("   Pausing before next song...")
-                    time.sleep(5)
             
             # Save the dataset
             self.save_dataset(captured_songs)
