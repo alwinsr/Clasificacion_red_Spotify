@@ -1,7 +1,7 @@
 import time
 import csv
 import os
-from scapy.all import sniff
+from scapy.all import sniff, wrpcap
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
@@ -13,8 +13,7 @@ load_dotenv()
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
-DATASET_FILE = "spotify_traffic_dataset.cvs"
-CAPTURE_DURATION = 60  # seconds
+CAPTURE_DURATION = 15  # seconds
 
 # List of song URIs to capture (replace with your test songs)
 SONG_URIS = [
@@ -23,12 +22,28 @@ SONG_URIS = [
     "spotify:track:6hpuesKPNa3WhV48O7Fa47"
 ]
 
+STREAMING_QUALITY = [
+    'low',
+    'normal',
+    'high',
+    'very-high'
+]
+
 
 class SpotifyDatasetGenerator:
-    def __init__(self):
+    def __init__(self, audio_quality, interface="ens33"):
         self.driver = None
         self.spotify_client = None
         self.captured_data = []
+        self.interface = interface
+        self.dataset_dir = 'dataset'
+        self.pcap_captures_dir = 'pcap'
+        self.audio_quality = audio_quality
+
+        os.makedirs(self.dataset_dir, exist_ok=True)
+        os.makedirs(self.pcap_captures_dir, exist_ok=True)
+
+        self.dataset_file=f"{self.dataset_dir}/spotify_traffic_dataset_{audio_quality}.cvs"
                 
     def setup_spotify_client(self):
         """Initialize Spotipy client"""
@@ -40,7 +55,7 @@ class SpotifyDatasetGenerator:
             redirect_uri=SPOTIFY_REDIRECT_URI,
             scope=scope
         ))
-        print("   ✓ Spotify client authenticated")
+        print("    Spotify client authenticated")
     
     def packet_callback(self, packet):
         """Callback function for packet capture"""
@@ -50,48 +65,49 @@ class SpotifyDatasetGenerator:
     
     def capture_song_traffic(self, song_uri, song_index):
         """Capture network traffic for a specific song"""
-        print(f"[3-4] Capturing traffic for song {song_index + 1}/3...")
+        print(f"Capturing traffic for song {song_index + 1}/{len(SONG_URIS)}...")
         
         # Start playback using Spotipy
         try:
             self.spotify_client.start_playback(uris=[song_uri])
-            print(f"   ✓ Started playback: {song_uri}")
+            print(f"Started playback: {song_uri}")
         except Exception as e:
-            print(f"   ⚠ Error starting playback: {e}")
-            print("   Attempting to continue with current playback...")
+            print(f"Error starting playback: {e}")
+            print("Attempting to continue with current playback...")
         
         # Initialize capture list for this song
         self.current_capture = []
         
         # Start packet sniffing
         print(f"   Sniffing packets for {CAPTURE_DURATION} seconds...")
-        start_time = time.time()
         try:
-            sniff(
-                iface="ens33",
+            captured_packets = sniff(
+                iface=self.interface,
+                filter="tcp port 443",
                 prn=self.packet_callback,
                 timeout=CAPTURE_DURATION,
-                store=False
+                store=True
             )
+
+            wrpcap(f"{self.pcap_captures_dir}/{time.strftime("%d-%m-%Y-%H%M%S")}_{song_uri}_{self.audio_quality}.pcap", captured_packets)
         except PermissionError:
-            print("   ⚠ ERROR: Permission denied. Please run script with sudo/admin privileges")
+            print("ERROR: Permission denied. Please run script with sudo/admin privileges")
             raise
         
-        elapsed = time.time() - start_time
-        print(f"   ✓ Captured {len(self.current_capture)} packets in {elapsed:.1f}s")
+        print(f"    Captured {len(self.current_capture)} packets")
         
         # Store the capture
         return self.current_capture.copy()
     
     def save_dataset(self, new_data):
         """Save or append data to CSV file"""
-        print("[6] Saving dataset...")
+        print("Saving dataset...")
         
         # Check if file exists to determine if we need headers
-        file_exists = os.path.exists(DATASET_FILE)
+        file_exists = os.path.exists(self.dataset_file)
         
         # Open CSV file in append mode
-        with open(DATASET_FILE, 'a', newline='') as f:
+        with open(self.dataset_file, 'a', newline='') as f:
             writer = csv.writer(f)
             
             # Write headers if new file
@@ -115,8 +131,8 @@ class SpotifyDatasetGenerator:
                     ])
                     total_packets += 1
         
-        print(f"   ✓ Saved {total_packets} packets from {len(new_data)} songs")
-        print(f"   ✓ File: {DATASET_FILE}")
+        print(f"    Saved {total_packets} packets from {len(new_data)} songs")
+        print(f"    File: {self.dataset_file}")
     
     def generate_dataset(self):
         """Main method to generate the dataset"""
@@ -159,7 +175,18 @@ if __name__ == "__main__":
     print("   pip install -r requirements.txt")
     print("=" * 50 + "\n")
     
-    input("Press Enter to start data collection...")
+    print("\nAvailable qualities:")
+    print("1. Low")
+    print("2. Normal")
+    print("3. High")
+    print("4. Very high")
+
+    quality_idx = int(input("\nSelect the quality configured in Spotify (1-4):").strip())
+
+    print(f"Selected quality: {STREAMING_QUALITY[quality_idx - 1]}")
+
+    input("\nStart the Spotify player in a device and press Enter to start data collection...")
+
     
-    generator = SpotifyDatasetGenerator()
+    generator = SpotifyDatasetGenerator(audio_quality=STREAMING_QUALITY[quality_idx - 1])
     generator.generate_dataset()
