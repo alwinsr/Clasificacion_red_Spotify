@@ -18,17 +18,33 @@ CAPTURE_DURATION = 60  # seconds
 
 # ADD YOUR PLAYLISTS HERE (just the ID from the URL)
 MUSIC_PLAYLISTS = [
-    "7IddiFVjAJbTLniq82Vusj",  # Pink Floyd Best Of
-    "5HpkkM0bOPDUgLcho7nCoZ",  # Tame Impala best songs
-    "28nxGp2hLho3BA0dX3cb5P",  # THE BEST OF RADIOHEAD
-    "6Fs9lBMpHdqjvQ6wCPDnKc",  # Peak Kanye
+    # "7IddiFVjAJbTLniq82Vusj",  # Pink Floyd Best Of
+    # "5HpkkM0bOPDUgLcho7nCoZ",  # Tame Impala best songs
+    # "28nxGp2hLho3BA0dX3cb5P",  # THE BEST OF RADIOHEAD
+    # "6Fs9lBMpHdqjvQ6wCPDnKc",  # Peak Kanye
+    # "35kZMub9UFGSheeghSXBfw",  # (neo-psychedelic) Best of Tame Impala
+    # "4gHuAdOjAZHMb6WYKQhbLD",  # (neo-psychedelic) mgmt need to change to indie -- tame impala alo indie
+    # "3IffYurXS0a9WC3SikI4TV",  # travis(rap) best songs and hardest hits
+
+    # ----------------------------------------------------------------
+    # "0U3ACsVhROtNwwacDmhcuR",  # (Progressive Rock) 25 King Crimson
+    # "4yebu47SKvUq8aWmTu1cRc",  # david bowie Art Rock
+
+    # edm
+    "1mkinKlTq2OV9MCE5Nkpp9",
+    "10PXjjuLhwtYRZtJkgixLO",
+    "6Sv7aZ1fHZVEWfGdhqWn87",
+    "0yskWBwX31blZR9bVCBZTL",
 ]
 
 # ADD YOUR PODCAST PLAYLISTS HERE (just the ID from the URL)
 # Using playlists ensures different episodes each time, better for ML diversity
 PODCAST_PLAYLISTS = [
-    "5icMx65GADu8ICFmK7BwrL",  # Top 10 podcasts for life
-    "38he99wNRz1QU6mrOAeyw9",  # podcasts that changed my life <3
+    # "5icMx65GADu8ICFmK7BwrL",  # Top 10 podcasts for life
+    # "38he99wNRz1QU6mrOAeyw9",  # podcasts that changed my life <3
+
+    # "4DX89yK57dk2m5OztHqNPK",  # best true crime podcasts
+    # "5lNiCLt9Rx2U3CGX2MxFcH",  # philosophy podcasts
 ]
 
 class SpotifyGenreClassificationDataset:
@@ -261,7 +277,7 @@ class SpotifyGenreClassificationDataset:
         # Save PCAP
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         safe_uri = content_info['uri'].replace(":", "_")
-        pcap_filename = f"{self.pcap_dir}/{timestamp}_{safe_uri}_{self.audio_quality}.pcap"
+        pcap_filename = f"{self.pcap_dir}/{timestamp}_{safe_uri}.pcap"
         wrpcap(pcap_filename, packets)
         print(f"    Saved PCAP: {pcap_filename}")
 
@@ -430,16 +446,13 @@ if __name__ == "__main__":
     print("=" * 70)
     print("SPOTIFY GENRE/CONTENT CLASSIFICATION DATASET GENERATOR")
     print("=" * 70)
-    print("\n🎯 PURPOSE:")
-    print("   Generate dataset for ML classification tasks:")
-    print("   1. Binary Classification: Music vs Podcast")
-    print("   2. Multi-class Classification: Specific genres + Podcast")
-    print("\n⚠️  REQUIREMENTS:")
+    # print("\n🎯 PURPOSE:")
+    # print("   Generate dataset for ML classification tasks:")
+    # print("   1. Binary Classification: Music vs Podcast")
+    # print("   2. Multi-class Classification: Specific genres + Podcast")
+    print("\n  REQUIREMENTS:")
     print("1. Run this script with sudo/administrator privileges")
     print("2. Ensure Spotify credentials are set in .env file:")
-    print("   - SPOTIFY_CLIENT_ID")
-    print("   - SPOTIFY_CLIENT_SECRET")
-    print("   - SPOTIFY_REDIRECT_URI")
     print("3. Update MUSIC_PLAYLISTS and PODCAST_PLAYLISTS at top of file")
     print("4. Install required packages:")
     print("   pip install scapy spotipy python-dotenv numpy")
